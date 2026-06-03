@@ -1,0 +1,24 @@
+# Node / frontend
+node_modules/
+dist/
+build/
+*.log
+oldSite/
+# Python / Django
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Environment
+.env
+.env.*
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.tmp
