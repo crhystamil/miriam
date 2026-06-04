@@ -1,10 +1,28 @@
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 
+import { getProducts } from "../api/products"
+import type { Product } from "../api/types"
 import { PublicProductCard } from "../components/PublicProductCard"
-import { publicProducts } from "../data/publicCatalog"
 
 export function LandingPage() {
-  const featured = publicProducts.slice(0, 4)
+  const [featured, setFeatured] = useState<Product[]>([])
+  const [loadingFeatured, setLoadingFeatured] = useState(true)
+
+  useEffect(() => {
+    async function loadFeatured() {
+      try {
+        const result = await getProducts({ page: 1 })
+        setFeatured(result.results.slice(0, 4))
+      } catch {
+        setFeatured([])
+      } finally {
+        setLoadingFeatured(false)
+      }
+    }
+
+    void loadFeatured()
+  }, [])
 
   return (
     <main className="public-page">
@@ -13,7 +31,7 @@ export function LandingPage() {
           <div>
             <span className="public-kicker">Especialistas en lavado</span>
             <h1>
-              Repuestos premium para tu <span>lavadora</span>
+              Repuestos de calidad para tu <span>lavadora</span>
             </h1>
             <p>
               Soluciones confiables en repuestos originales y servicio tecnico para que tu hogar no se detenga.
@@ -45,13 +63,20 @@ export function LandingPage() {
             <span className="public-kicker">Stock actualizado</span>
             <h2>Catalogo destacado</h2>
           </div>
-          <p>Mostrando {featured.length} productos recomendados.</p>
+          <p>{loadingFeatured ? "Cargando productos recomendados." : `Mostrando ${featured.length} productos recomendados.`}</p>
         </div>
-        <div className="public-product-grid">
-          {featured.map((product) => (
-            <PublicProductCard key={product.id} product={product} />
-          ))}
-        </div>
+        {featured.length > 0 ? (
+          <div className="public-product-grid">
+            {featured.map((product) => (
+              <PublicProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : !loadingFeatured ? (
+          <article className="public-empty">
+            <h3>Catalogo en preparacion</h3>
+            <p>Pronto publicaremos los repuestos disponibles.</p>
+          </article>
+        ) : null}
       </section>
 
       <section className="public-container public-assist">
@@ -71,7 +96,7 @@ export function LandingPage() {
           <Link to="/contact">Ver sucursales</Link>
         </div>
         <img
-          src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=1200"
+          src="https://repuestoslavadora.store/media/img/iam.png"
           alt="Soporte tecnico"
           referrerPolicy="no-referrer"
         />

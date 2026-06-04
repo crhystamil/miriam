@@ -44,6 +44,37 @@ class ProductsApiTests(APITestCase):
         self.assertEqual(response.data["count"], 6)
         self.assertEqual(len(response.data["results"]), 6)
 
+    def test_guest_can_list_only_active_products(self) -> None:
+        response = self.client.get("/api/products/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 6)
+        self.assertTrue(all(item["is_active"] for item in response.data["results"]))
+        self.assertNotIn("PR-001", {item["sku"] for item in response.data["results"]})
+
+    def test_guest_can_search_active_products(self) -> None:
+        response = self.client.get("/api/products/?search=PR-000")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["sku"], "PR-000")
+
+    def test_guest_search_without_matches_returns_empty_page(self) -> None:
+        response = self.client.get("/api/products/?search=no-existe")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.data["results"], [])
+
+    def test_guest_can_retrieve_active_product(self) -> None:
+        product = Product.objects.get(sku="PR-000")
+        response = self.client.get(f"/api/products/{product.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["sku"], "PR-000")
+        self.assertTrue(response.data["is_active"])
+
+    def test_guest_retrieve_inactive_product_returns_not_found(self) -> None:
+        product = Product.objects.get(sku="PR-001")
+        response = self.client.get(f"/api/products/{product.id}/")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
     def test_products_filter_by_search_and_low_stock(self) -> None:
         self.client.force_authenticate(user=self.vendor)
         response = self.client.get("/api/products/?search=PR-000&low_stock=true")

@@ -1,6 +1,6 @@
 import type { ApiError } from "./types"
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? `${window.location.protocol}//${window.location.hostname}:8000`
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:8000` : "")
 
 function getCookie(name: string): string | null {
   const parts = document.cookie.split(";").map((item) => item.trim())

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react"
 
 import { HttpError } from "../api/client"
 import { createProduct, deactivateProduct, getProducts, updateProduct } from "../api/products"
-import { createPurchase } from "../api/sales"
 import type { PaginatedResponse, Product } from "../api/types"
 import { PaginatedTable } from "../components/PaginatedTable"
 import { SectionCard } from "../components/SectionCard"
@@ -33,11 +32,7 @@ export function ProductsPage() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [purchaseProductId, setPurchaseProductId] = useState("")
-  const [purchaseQty, setPurchaseQty] = useState("1")
-  const [purchaseCost, setPurchaseCost] = useState("")
   const [submittingProduct, setSubmittingProduct] = useState(false)
-  const [submittingPurchase, setSubmittingPurchase] = useState(false)
   const [imageLoadErrors, setImageLoadErrors] = useState<Record<number, boolean>>({})
 
   function resetProductForm() {
@@ -147,9 +142,6 @@ export function ProductsPage() {
         is_active: isActive || undefined,
       })
       setData(result)
-      if (result.results.length > 0 && !purchaseProductId) {
-        setPurchaseProductId(String(result.results[0].id))
-      }
     } catch (err) {
       if (err instanceof HttpError) {
         setError(err.payload.detail)
@@ -243,44 +235,6 @@ export function ProductsPage() {
     }
   }
 
-  async function submitPurchase(e: FormEvent) {
-    e.preventDefault()
-    if (submittingPurchase) return
-    setError("")
-    setSuccess("")
-    setFieldErrors([])
-    if (!purchaseProductId) {
-      setError("Debe seleccionar un producto.")
-      return
-    }
-    if (Number(purchaseQty) <= 0 || Number(purchaseCost) <= 0) {
-      setError("Cantidad y costo unitario deben ser mayores a cero.")
-      return
-    }
-    try {
-      setSubmittingPurchase(true)
-      await createPurchase({
-        product: Number(purchaseProductId),
-        quantity: Number(purchaseQty),
-        unit_cost: purchaseCost
-      })
-      setSuccess("Compra registrada correctamente.")
-      setPurchaseQty("1")
-      setPurchaseCost("")
-      await loadProducts()
-    } catch (err) {
-      if (err instanceof HttpError) {
-        setError(err.payload.detail)
-        setFieldErrors(flattenFieldErrors(err))
-      } else {
-        setError("No se pudo registrar la compra.")
-      }
-    }
-    finally {
-      setSubmittingPurchase(false)
-    }
-  }
-
   function applyFilters() {
     setPage(1)
     setSearch(searchInput)
@@ -299,7 +253,7 @@ export function ProductsPage() {
     <main className="page-stack">
       <section className="page-head">
         <h1>Productos</h1>
-        <p className="page-subtle">Consulta inventario y registra altas de stock.</p>
+        <p className="page-subtle">Consulta inventario y administra el catalogo de productos.</p>
       </section>
       <StatusMessages error={error} success={success} fieldErrors={fieldErrors} />
 
@@ -308,20 +262,6 @@ export function ProductsPage() {
           <div className="sales-open-wrap">
             <button type="button" onClick={openCreateProductModal}>Nuevo producto</button>
           </div>
-
-          <h2>Registrar compra</h2>
-          <form className="filters" onSubmit={submitPurchase}>
-            <select aria-label="Producto de compra" value={purchaseProductId} onChange={(e) => setPurchaseProductId(e.target.value)}>
-              {(data?.results ?? []).map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.sku} - {product.name}
-                </option>
-              ))}
-            </select>
-            <input aria-label="Cantidad de compra" value={purchaseQty} onChange={(e) => setPurchaseQty(e.target.value)} placeholder="Cantidad" />
-            <input aria-label="Costo unitario compra" value={purchaseCost} onChange={(e) => setPurchaseCost(e.target.value)} placeholder="Costo unitario" />
-            <button type="submit" disabled={submittingPurchase}>{submittingPurchase ? "Enviando..." : "Registrar compra"}</button>
-          </form>
         </SectionCard>
       ) : null}
 

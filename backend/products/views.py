@@ -28,6 +28,8 @@ class ProductViewSet(ModelViewSet):
             queryset = queryset.filter(is_active=(is_active == "true"))
         elif self.action == "list":
             queryset = queryset.filter(is_active=True)
+        elif self.action == "retrieve" and not self.request.user.is_authenticated:
+            queryset = queryset.filter(is_active=True)
         if low_stock == "true":
             queryset = queryset.filter(stock__lte=5)
         return queryset.order_by("name")

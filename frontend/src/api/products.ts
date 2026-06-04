@@ -25,6 +25,10 @@ export function getProducts(filters: ProductFilters = {}) {
   return apiFetch<PaginatedResponse<Product>>(`/api/products/${buildQuery(normalizedFilters)}`)
 }
 
+export function getProduct(productId: number) {
+  return apiFetch<Product>(`/api/products/${productId}/`)
+}
+
 type CreateProductInput = {
   name: string
   description?: string

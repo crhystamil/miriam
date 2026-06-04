@@ -1,5 +1,7 @@
 import { Link, NavLink, Outlet } from "react-router-dom"
 
+import { createWhatsAppUrl, publicContact } from "../data/publicContact"
+
 const navItems = [
   { to: "/", label: "Inicio" },
   { to: "/catalog", label: "Catalogo" },
@@ -13,9 +15,9 @@ export function PublicLayout() {
       <header className="public-nav-wrap">
         <nav className="public-nav">
           <NavLink to="/" className="public-brand">
-            <span className="public-brand-mark">IR</span>
+            <span className="public-brand-mark">iAM</span>
             <span>
-              LAVA<strong>REPUESTOS</strong>
+              IAM repuestos
             </span>
           </NavLink>
 
@@ -27,11 +29,8 @@ export function PublicLayout() {
             ))}
           </div>
 
-          <a className="public-cta" href="https://wa.me/59170000000" target="_blank" rel="noopener noreferrer">
+          <a className="public-cta" href={createWhatsAppUrl()} target="_blank" rel="noopener noreferrer">
             WhatsApp directo
-          </a>
-          <a className="public-login-link" href="/login">
-            Ingresar al sistema
           </a>
         </nav>
       </header>
@@ -41,7 +40,7 @@ export function PublicLayout() {
       <footer className="public-footer">
         <div className="public-container public-footer-grid">
           <section>
-            <h3>LavaRepuestos</h3>
+            <h3>IAM</h3>
             <p>Repuestos y servicio tecnico especializado para lavadoras de todas las marcas.</p>
           </section>
           <section>
@@ -55,9 +54,8 @@ export function PublicLayout() {
           </section>
           <section>
             <h4>Contacto</h4>
-            <p>Av. Principal #123</p>
-            <p>+591 70000000</p>
-            <p>contacto@iamrepuestos.bo</p>
+            <p>{publicContact.address}</p>
+            <p>{publicContact.whatsappDisplay}</p>
           </section>
         </div>
       </footer>

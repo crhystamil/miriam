@@ -1357,6 +1357,15 @@ th {
   font: inherit;
 }
 
+.public-contact-error {
+  margin: 0;
+  border-radius: 0.75rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.88rem;
+}
+
 .public-map {
   margin-top: 1rem;
   border-radius: 1.4rem;
@@ -1365,28 +1374,12 @@ th {
   position: relative;
 }
 
-.public-map img {
+.public-map iframe {
   width: 100%;
+  min-height: 420px;
+  border: 0;
   aspect-ratio: 16 / 5;
-  object-fit: cover;
-  filter: grayscale(0.25);
-  transition: filter 280ms ease;
-}
-
-.public-map::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(37, 99, 235, 0.1);
-  transition: background 280ms ease;
-}
-
-.public-map:hover img {
-  filter: grayscale(0);
-}
-
-.public-map:hover::after {
-  background: rgba(37, 99, 235, 0);
+  display: block;
 }
 
 .public-footer {
