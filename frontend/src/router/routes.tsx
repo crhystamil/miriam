@@ -15,10 +15,11 @@ import { ProductsPage } from "../pages/ProductsPage"
 import { ProductDetailPage } from "../pages/ProductDetailPage"
 import { SalesPage } from "../pages/SalesPage"
 import { ServicesPage } from "../pages/ServicesPage"
-import { RequireAuth, RequireRole } from "./guards"
+import { WholesalerProductsPage } from "../pages/WholesalerProductsPage"
+import { RequireAuth, RequireRole, RequireWholesalerAccess } from "./guards"
 
-function AdminPage() {
-  return <p>Area de administrador</p>
+function PortalAdminPage() {
+  return <p>Area administrativa del portal</p>
 }
 
 export function AppRoutes() {
@@ -30,6 +31,9 @@ export function AppRoutes() {
         <Route path="/product/:id" element={<ProductDetailPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/contact" element={<ContactPage />} />
+        <Route element={<RequireWholesalerAccess />}>
+          <Route path="/mayoristas" element={<WholesalerProductsPage />} />
+        </Route>
       </Route>
       <Route path="/login" element={<LoginPage />} />
 
@@ -44,7 +48,7 @@ export function AppRoutes() {
           <Route element={<RequireRole roles={["admin"]} />}>
             <Route path="/monthly-cut" element={<MonthlyCutPage />} />
             <Route path="/monthly-cut/:cutId" element={<MonthlyCutDetailPage />} />
-            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/portal-admin" element={<PortalAdminPage />} />
           </Route>
         </Route>
       </Route>

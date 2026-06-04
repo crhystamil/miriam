@@ -1,6 +1,8 @@
 import { Navigate, Outlet } from "react-router-dom"
 
+import { WholesalerAccessPage } from "../pages/WholesalerAccessPage"
 import { useAuth } from "../state/auth"
+import { useWholesalerAccess } from "../state/wholesalerAccess"
 import type { Role } from "../api/types"
 
 export function RequireAuth() {
@@ -21,6 +23,14 @@ export function RequireRole({ roles }: { roles: Role[] }) {
   }
   if (!roles.includes(user.role)) {
     return <Navigate to="/" replace />
+  }
+  return <Outlet />
+}
+
+export function RequireWholesalerAccess() {
+  const { accessEnabled } = useWholesalerAccess()
+  if (!accessEnabled) {
+    return <WholesalerAccessPage />
   }
   return <Outlet />
 }

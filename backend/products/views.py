@@ -23,7 +23,10 @@ class ProductViewSet(ModelViewSet):
         low_stock = self.request.query_params.get("low_stock")
 
         if search:
-            queryset = queryset.filter(Q(name__icontains=search) | Q(sku__icontains=search))
+            search_filter = Q(name__icontains=search) | Q(sku__icontains=search)
+            if search.isdigit():
+                search_filter |= Q(id=int(search))
+            queryset = queryset.filter(search_filter)
         if is_active in {"true", "false"}:
             queryset = queryset.filter(is_active=(is_active == "true"))
         elif self.action == "list":

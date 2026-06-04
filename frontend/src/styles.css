@@ -1423,6 +1423,191 @@ th {
   padding-left: 1rem;
 }
 
+.wholesale-access-page {
+  min-height: calc(100vh - 180px);
+  padding: clamp(2rem, 5vw, 5rem) 1rem;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(16, 185, 129, 0.2), transparent 28%),
+    radial-gradient(circle at 82% 8%, rgba(37, 99, 235, 0.16), transparent 26%);
+}
+
+.wholesale-access-card {
+  width: min(980px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: clamp(1rem, 4vw, 2.5rem);
+  padding: clamp(1.25rem, 4vw, 2.5rem);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  position: relative;
+}
+
+.wholesale-access-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), transparent 38%, rgba(59, 130, 246, 0.1));
+}
+
+.wholesale-access-copy,
+.wholesale-access-form {
+  position: relative;
+  z-index: 1;
+}
+
+.wholesale-access-copy h1 {
+  font-size: clamp(2rem, 4vw, 3.7rem);
+  line-height: 0.95;
+}
+
+.wholesale-access-copy p {
+  max-width: 58ch;
+  color: #475569;
+  font-size: 1.03rem;
+  line-height: 1.7;
+}
+
+.wholesale-access-note {
+  margin-top: 1.5rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #bbf7d0;
+}
+
+.wholesale-access-note span {
+  color: #047857;
+}
+
+.wholesale-access-form {
+  align-self: center;
+  display: grid;
+  gap: 0.85rem;
+  padding: clamp(1rem, 3vw, 1.4rem);
+  border-radius: 22px;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+}
+
+.wholesale-access-form label {
+  display: grid;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+
+.wholesale-access-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+
+.wholesale-access-form input:focus {
+  border-color: #86efac;
+  box-shadow: 0 0 0 4px rgba(134, 239, 172, 0.16);
+}
+
+.wholesale-access-form input::placeholder {
+  color: #94a3b8;
+}
+
+.wholesale-access-error {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(254, 226, 226, 0.12);
+  color: #fecaca;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.wholesale-access-button {
+  width: 100%;
+  justify-content: center;
+  border: 0;
+}
+
+.wholesale-access-back {
+  color: #bfdbfe;
+  text-align: center;
+  font-size: 0.92rem;
+}
+
+.wholesaler-products-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.wholesaler-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.wholesaler-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.wholesaler-table th,
+.wholesaler-table td {
+  padding: 0.95rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.wholesaler-table th {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wholesaler-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.wholesaler-product-image,
+.wholesaler-image-empty {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+}
+
+.wholesaler-product-image {
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+.wholesaler-image-empty {
+  display: grid;
+  place-items: center;
+  background: #f1f5f9;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -1466,8 +1651,17 @@ th {
 
   .public-hero-grid,
   .public-contact-grid,
-  .public-detail-card {
+  .public-detail-card,
+  .wholesale-access-card {
     grid-template-columns: 1fr;
+  }
+
+  .wholesale-access-page {
+    padding: 1rem;
+  }
+
+  .wholesaler-products-head {
+    flex-direction: column;
   }
 
   .public-store-block,
