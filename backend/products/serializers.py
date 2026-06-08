@@ -16,24 +16,42 @@ class MultiFileListField(serializers.ListField):
 
 class ProductImageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+    medium_url = serializers.SerializerMethodField()
+    large_url = serializers.SerializerMethodField()
 
-    def get_image_url(self, obj):
-        if not obj.image_file:
+    def _build_url(self, obj, field_name):
+        variant = getattr(obj, field_name)
+        source = variant or obj.image_file
+        if not source:
             return ""
         request = self.context.get("request")
         if request is None:
-            return obj.image_file.url
-        return request.build_absolute_uri(obj.image_file.url)
+            return source.url
+        return request.build_absolute_uri(source.url)
+
+    def get_image_url(self, obj):
+        return self._build_url(obj, "image_file")
+
+    def get_thumbnail_url(self, obj):
+        return self._build_url(obj, "thumbnail")
+
+    def get_medium_url(self, obj):
+        return self._build_url(obj, "medium")
+
+    def get_large_url(self, obj):
+        return self._build_url(obj, "large")
 
     class Meta:
         model = ProductImage
-        fields = ["id", "image_url", "content_type", "size_bytes", "position"]
-        read_only_fields = ["id", "image_url", "content_type", "size_bytes", "position"]
+        fields = ["id", "image_url", "thumbnail_url", "medium_url", "large_url", "content_type", "size_bytes", "position"]
+        read_only_fields = ["id", "image_url", "thumbnail_url", "medium_url", "large_url", "content_type", "size_bytes", "position"]
 
 
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(read_only=True, many=True)
     representative_image_url = serializers.SerializerMethodField()
+    representative_thumbnail_url = serializers.SerializerMethodField()
     fifo_cost_price = serializers.SerializerMethodField()
     image_files = MultiFileListField(
         child=serializers.FileField(),
@@ -57,6 +75,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_active",
             "images",
             "representative_image_url",
+            "representative_thumbnail_url",
             "image_files",
             "created_at",
             "updated_at",
@@ -80,6 +99,18 @@ class ProductSerializer(serializers.ModelSerializer):
         if request is None:
             return image.image_file.url
         return request.build_absolute_uri(image.image_file.url)
+
+    def get_representative_thumbnail_url(self, obj):
+        image = obj.images.order_by("position", "id").first()
+        if not image:
+            return ""
+        source = image.thumbnail or image.image_file
+        if not source:
+            return ""
+        request = self.context.get("request")
+        if request is None:
+            return source.url
+        return request.build_absolute_uri(source.url)
 
     def validate(self, attrs):
         image_files = attrs.get("image_files")

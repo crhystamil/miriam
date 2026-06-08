@@ -152,11 +152,15 @@ export type Product = {
   is_active: boolean
   images: ProductImage[]
   representative_image_url: string
+  representative_thumbnail_url: string
 }
 
 export type ProductImage = {
   id: number
   image_url: string
+  thumbnail_url: string
+  medium_url: string
+  large_url: string
   content_type: string
   size_bytes: number
   position?: number

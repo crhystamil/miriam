@@ -38,6 +38,9 @@ class ProductImage(models.Model):
     content_type = models.CharField(max_length=100, default="")
     size_bytes = models.PositiveIntegerField(default=0)
     position = models.PositiveSmallIntegerField(default=1)
+    thumbnail = models.ImageField(upload_to="products/variants/", null=True, blank=True)
+    medium = models.ImageField(upload_to="products/variants/", null=True, blank=True)
+    large = models.ImageField(upload_to="products/variants/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -4,16 +4,24 @@ import { Link, useParams } from "react-router-dom"
 import { HttpError } from "../api/client"
 import { getProduct } from "../api/products"
 import type { Product } from "../api/types"
+import { Lightbox } from "../components/Lightbox"
 import { createWhatsAppUrl } from "../data/publicContact"
 
 const FALLBACK_PRODUCT_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 480'%3E%3Crect width='640' height='480' fill='%23eef2f7'/%3E%3Cpath d='M150 329h340l-82-101-58 70-44-54-156 185z' fill='%23c9d4e5'/%3E%3Ccircle cx='234' cy='171' r='45' fill='%23d8e1ee'/%3E%3C/svg%3E"
 
+export type GalleryImage = {
+  key: string
+  thumbnail: string
+  large: string
+}
+
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const productId = Number(id)
   const [product, setProduct] = useState<Product | null>(null)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const [selectedImageKey, setSelectedImageKey] = useState<string | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [notFound, setNotFound] = useState(false)
@@ -29,7 +37,8 @@ export function ProductDetailPage() {
       setLoading(true)
       setError("")
       setNotFound(false)
-      setSelectedImage(null)
+      setSelectedImageKey(null)
+      setIsLightboxOpen(false)
 
       try {
         const result = await getProduct(productId)
@@ -55,13 +64,28 @@ export function ProductDetailPage() {
     void loadProduct()
   }, [productId])
 
-  const gallery = useMemo(() => {
+  const gallery = useMemo<GalleryImage[]>(() => {
     if (!product) return []
-    const images = product.images.map((item) => item.image_url).filter(Boolean)
-    if (product.representative_image_url && !images.includes(product.representative_image_url)) {
-      return [product.representative_image_url, ...images]
+    const items: GalleryImage[] = product.images
+      .filter((item) => item.image_url)
+      .map((item) => ({
+        key: `img-${item.id}`,
+        thumbnail: item.thumbnail_url || item.medium_url || item.image_url,
+        large: item.large_url || item.medium_url || item.image_url,
+      }))
+    if (product.representative_image_url) {
+      const hasRepresentative = product.images.some(
+        (item) => item.image_url === product.representative_image_url
+      )
+      if (!hasRepresentative) {
+        items.unshift({
+          key: "representative",
+          thumbnail: product.representative_thumbnail_url || product.representative_image_url,
+          large: product.representative_image_url,
+        })
+      }
     }
-    return images
+    return items
   }, [product])
 
   if (loading) {
@@ -99,7 +123,10 @@ export function ProductDetailPage() {
     )
   }
 
-  const activeImage = selectedImage ?? gallery[0] ?? FALLBACK_PRODUCT_IMAGE
+  const activeImage = gallery.find((item) => item.key === selectedImageKey) ?? gallery[0]
+  const activeSrc = activeImage?.large ?? FALLBACK_PRODUCT_IMAGE
+  const activeIndex = activeImage ? Math.max(0, gallery.indexOf(activeImage)) : 0
+  const canOpenLightbox = gallery.length > 0
   const message = `Hola, me interesa el producto: ${product.name} con ID: ${product.id}`
   const whatsapp = createWhatsAppUrl(message)
 
@@ -113,17 +140,49 @@ export function ProductDetailPage() {
 
       <section className="public-detail-card">
         <div className="public-detail-media">
-          <img src={activeImage} alt={product.name} referrerPolicy="no-referrer" />
+          {canOpenLightbox ? (
+            <button
+              type="button"
+              className="public-detail-media-button"
+              aria-label={`Ampliar imagen de ${product.name}`}
+              onClick={() => setIsLightboxOpen(true)}
+            >
+              <img
+                src={activeSrc}
+                alt={product.name}
+                loading="lazy"
+                width={800}
+                height={800}
+                referrerPolicy="no-referrer"
+              />
+            </button>
+          ) : (
+            <img
+              src={activeSrc}
+              alt={product.name}
+              loading="lazy"
+              width={800}
+              height={800}
+              referrerPolicy="no-referrer"
+            />
+          )}
           {gallery.length > 1 ? (
             <div className="public-gallery-strip">
               {gallery.map((item) => (
                 <button
-                  key={item}
+                  key={item.key}
                   type="button"
-                  className={activeImage === item ? "active" : ""}
-                  onClick={() => setSelectedImage(item)}
+                  className={activeImage?.key === item.key ? "active" : ""}
+                  onClick={() => setSelectedImageKey(item.key)}
                 >
-                  <img src={item} alt={product.name} referrerPolicy="no-referrer" />
+                  <img
+                    src={item.thumbnail}
+                    alt={product.name}
+                    loading="lazy"
+                    width={120}
+                    height={120}
+                    referrerPolicy="no-referrer"
+                  />
                 </button>
               ))}
             </div>
@@ -139,6 +198,15 @@ export function ProductDetailPage() {
           </a>
         </div>
       </section>
+
+      {isLightboxOpen && canOpenLightbox ? (
+        <Lightbox
+          images={gallery}
+          startIndex={activeIndex}
+          alt={product.name}
+          onClose={() => setIsLightboxOpen(false)}
+        />
+      ) : null}
     </main>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 
 import { HttpError } from "../api/client"
@@ -14,61 +14,61 @@ export function WholesalerProductsPage() {
   const { clearAccess } = useWholesalerAccess()
   const [query, setQuery] = useState("")
   const [products, setProducts] = useState<Product[]>([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState("")
+  const requestId = useRef(0)
 
-  async function loadAllProducts(searchTerm: string) {
-    const allProducts: Product[] = []
-    let nextPage: number | null = 1
+  async function loadProducts(nextPage: number, searchTerm: string) {
+    const current = ++requestId.current
+    const isFirstPage = nextPage === 1
+    if (isFirstPage) {
+      setLoading(true)
+      setProducts([])
+    } else {
+      setLoadingMore(true)
+    }
+    setError("")
 
-    while (nextPage !== null) {
+    try {
       const result = await getProducts({
         page: nextPage,
         search: searchTerm.trim() || undefined,
-        is_active: "true"
+        is_active: "true",
       })
-
-      allProducts.push(...result.results)
-      nextPage = result.next ? nextPage + 1 : null
+      if (current !== requestId.current) return
+      setProducts((previous) =>
+        isFirstPage ? result.results : [...previous, ...result.results]
+      )
+      setHasMore(Boolean(result.next))
+      setPage(nextPage)
+    } catch (err) {
+      if (current !== requestId.current) return
+      if (err instanceof HttpError) {
+        setError(err.payload.detail)
+      } else {
+        setError("No se pudo cargar la vista mayorista.")
+      }
+    } finally {
+      if (current === requestId.current) {
+        setLoading(false)
+        setLoadingMore(false)
+      }
     }
-
-    return allProducts
   }
 
   useEffect(() => {
-    let active = true
     const timeoutId = window.setTimeout(() => {
-      void loadProducts(query, () => active)
+      void loadProducts(1, query)
     }, 250)
 
-    return () => {
-      active = false
-      window.clearTimeout(timeoutId)
-    }
+    return () => window.clearTimeout(timeoutId)
   }, [query])
 
-  async function loadProducts(searchTerm: string, shouldApply: () => boolean) {
-    setLoading(true)
-    setError("")
-    try {
-      const result = await loadAllProducts(searchTerm)
-      if (shouldApply()) {
-        setProducts(result)
-      }
-    } catch (err) {
-      if (shouldApply()) {
-        if (err instanceof HttpError) {
-          setError(err.payload.detail)
-        } else {
-          setError("No se pudo cargar la vista mayorista.")
-        }
-      }
-    } finally {
-      if (shouldApply()) {
-        setLoading(false)
-      }
-    }
-  }
+  const hasSearch = query.trim().length > 0
+  const showEmpty = !loading && !error && products.length === 0
 
   return (
     <main className="public-page public-container wholesaler-products-page">
@@ -92,6 +92,9 @@ export function WholesalerProductsPage() {
         <article className="public-empty">
           <h3>No se pudo cargar la lista</h3>
           <p>{error}</p>
+          <button type="button" className="secondary" onClick={() => void loadProducts(1, query)}>
+            Reintentar
+          </button>
         </article>
       ) : null}
 
@@ -102,48 +105,68 @@ export function WholesalerProductsPage() {
         </article>
       ) : null}
 
-      {!loading && !error && products.length === 0 ? (
+      {showEmpty ? (
         <article className="public-empty">
-          <h3>{query.trim() ? "Sin resultados" : "Sin productos disponibles"}</h3>
-          <p>{query.trim() ? "Prueba buscando por otro ID o nombre." : "No hay productos activos para mostrar."}</p>
+          <h3>{hasSearch ? "Sin resultados" : "Sin productos disponibles"}</h3>
+          <p>{hasSearch ? "Prueba buscando por otro ID o nombre." : "No hay productos activos para mostrar."}</p>
+          {hasSearch ? (
+            <button type="button" className="secondary" onClick={() => setQuery("")}>Limpiar busqueda</button>
+          ) : null}
         </article>
       ) : null}
 
       {products.length > 0 ? (
-        <div className="wholesaler-table-wrap">
-          <table className="wholesaler-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Producto</th>
-                <th>Imagen</th>
-                <th>Precio mayorista</th>
-                <th>Precio venta</th>
-                <th>Enlace</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id}>
-                  <td>#{product.id}</td>
-                  <td>{product.name}</td>
-                  <td>
-                    {product.representative_image_url ? (
-                      <img className="wholesaler-product-image" src={product.representative_image_url} alt={product.name} />
-                    ) : (
-                      <span className="wholesaler-image-empty">Sin imagen</span>
-                    )}
-                  </td>
-                  <td>{product.wholesale_reference_price ? formatMoney(product.wholesale_reference_price) : "No disponible"}</td>
-                  <td>{product.public_price ? formatMoney(product.public_price) : "No disponible"}</td>
-                  <td>
-                    <Link to={`/product/${product.id}`}>Ver producto</Link>
-                  </td>
+        <>
+          <div className="wholesaler-table-wrap">
+            <table className="wholesaler-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Producto</th>
+                  <th>Imagen</th>
+                  <th>Precio mayorista</th>
+                  <th>Precio venta</th>
+                  <th>Enlace</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {products.map((product) => (
+                  <tr key={product.id}>
+                    <td>#{product.id}</td>
+                    <td>{product.name}</td>
+                    <td>
+                      {product.representative_image_url ? (
+                        <img
+                          className="wholesaler-product-image"
+                          src={product.representative_thumbnail_url || product.representative_image_url}
+                          alt={product.name}
+                          loading="lazy"
+                          width={72}
+                          height={72}
+                        />
+                      ) : (
+                        <span className="wholesaler-image-empty">Sin imagen</span>
+                      )}
+                    </td>
+                    <td>{product.wholesale_reference_price ? formatMoney(product.wholesale_reference_price) : "No disponible"}</td>
+                    <td>{product.public_price ? formatMoney(product.public_price) : "No disponible"}</td>
+                    <td>
+                      <Link to={`/product/${product.id}`}>Ver producto</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {hasMore ? (
+            <div className="public-actions" style={{ justifyContent: "center", marginTop: "2rem" }}>
+              <button type="button" onClick={() => void loadProducts(page + 1, query)} disabled={loadingMore}>
+                {loadingMore ? "Cargando..." : "Cargar mas"}
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </main>
   )

@@ -11,13 +11,26 @@ type Props = {
 }
 
 export function PublicProductCard({ product }: Props) {
-  const imageUrl = product.representative_image_url || product.images[0]?.image_url || FALLBACK_PRODUCT_IMAGE
+  const primary = product.images[0]
+  const thumbnail =
+    product.representative_thumbnail_url || primary?.thumbnail_url || product.representative_image_url
+  const medium = primary?.medium_url
+  const imageUrl = thumbnail || primary?.image_url || FALLBACK_PRODUCT_IMAGE
   const message = `Hola, me interesa el producto: ${product.name} imagen: ${imageUrl}`
   const whatsapp = createWhatsAppUrl(message)
 
   return (
     <article className="public-product-card">
-      <img src={imageUrl} alt={product.name} referrerPolicy="no-referrer" />
+      <img
+        src={imageUrl}
+        srcSet={medium ? `${imageUrl} 400w, ${medium} 800w` : undefined}
+        sizes="(max-width: 600px) 45vw, 220px"
+        alt={product.name}
+        loading="lazy"
+        width={400}
+        height={400}
+        referrerPolicy="no-referrer"
+      />
       <p>{ "Repuesto disponible"}</p>
       <h3>{product.name}</h3>
       <div className="public-product-actions">
