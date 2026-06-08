@@ -12,7 +12,8 @@ venv/
 *.egg-info/
 
 #project
-backend/media/products/*
+backend/media/*
+backend/staticfiles/*
 docs/
 backend/db.sqlite3
 
