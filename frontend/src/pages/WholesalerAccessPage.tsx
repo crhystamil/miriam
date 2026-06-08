@@ -4,9 +4,9 @@ import { Link } from "react-router-dom"
 import { useWholesalerAccess } from "../state/wholesalerAccess"
 
 const validationMessages = {
-  empty: "Ingresa tu numero de celular para continuar.",
-  incomplete: "El numero parece incompleto. Revisa que tenga al menos 8 digitos.",
-  invalid: "Usa solo numeros de celular validos. Puedes incluir espacios o guiones.",
+  empty: "Ingresa para continuar.",
+  incomplete: "Error de codigo.",
+  invalid: "Usa solo tu codigo.",
   valid: ""
 }
 
@@ -35,7 +35,7 @@ export function WholesalerAccessPage() {
               }}
               inputMode="tel"
               autoComplete="tel"
-              placeholder="Ej. 61617345"
+              placeholder=""
               aria-describedby={error ? "wholesale-access-error" : undefined}
             />
           </label>
@@ -50,7 +50,7 @@ export function WholesalerAccessPage() {
             Ver productos mayoristas
           </button>
           <Link to="/" className="wholesale-access-back">
-            Volver al inicio sin ingresar mi numero
+            Volver al inicio 
           </Link>
         </form>
       </section>
