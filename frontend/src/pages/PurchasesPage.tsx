@@ -23,6 +23,8 @@ export function PurchasesPage() {
   const [newQuantity, setNewQuantity] = useState("1")
   const [newUnitCost, setNewUnitCost] = useState("")
   const [newNotes, setNewNotes] = useState("")
+  const [productQuery, setProductQuery] = useState("")
+  const [productSearch, setProductSearch] = useState("")
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false)
   const [submittingPurchase, setSubmittingPurchase] = useState(false)
 
@@ -48,17 +50,31 @@ export function PurchasesPage() {
   }, [page])
 
   useEffect(() => {
+    const timer = setTimeout(() => setProductSearch(productQuery), 300)
+    return () => clearTimeout(timer)
+  }, [productQuery])
+
+  useEffect(() => {
     async function loadProducts() {
-      const productList = await getProducts({ page: 1 })
+      const productList = await getProducts({ page: 1, search: productSearch || undefined })
       setProducts(productList.results)
       if (productList.results.length > 0 && !newProduct) {
         setNewProduct(String(productList.results[0].id))
       }
     }
     void loadProducts()
-  }, [])
+  }, [productSearch])
+
+  useEffect(() => {
+    if (products.length === 0) return
+    const exists = products.some((product) => String(product.id) === newProduct)
+    if (!exists) {
+      setNewProduct(String(products[0].id))
+    }
+  }, [products, newProduct])
 
   function resetPurchaseDraft() {
+    setProductQuery("")
     setNewQuantity("1")
     setNewUnitCost("")
     setNewNotes("")
@@ -144,6 +160,15 @@ export function PurchasesPage() {
 
             <form className="sales-form" onSubmit={submitCreatePurchase}>
               <label>
+                Buscar producto
+                <input
+                  aria-label="Buscar producto"
+                  placeholder="Buscar por SKU o nombre"
+                  value={productQuery}
+                  onChange={(e) => setProductQuery(e.target.value)}
+                />
+              </label>
+              <label>
                 Producto
                 <select aria-label="Producto de compra" value={newProduct} onChange={(e) => setNewProduct(e.target.value)}>
                   {products.map((product) => (
@@ -152,7 +177,8 @@ export function PurchasesPage() {
                     </option>
                   ))}
                 </select>
-                {products.length === 0 ? <span className="page-subtle">No hay productos disponibles para comprar.</span> : null}
+                {products.length === 0 && productQuery.trim() !== "" ? <span className="page-subtle">No se encontraron productos.</span> : null}
+                {products.length === 0 && productQuery.trim() === "" ? <span className="page-subtle">No hay productos disponibles para comprar.</span> : null}
               </label>
               <label>
                 Cantidad
