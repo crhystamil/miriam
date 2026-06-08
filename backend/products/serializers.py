@@ -98,7 +98,7 @@ class ProductSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request is None:
             return image.image_file.url
-        return request.build_absolute_uri(image.image_file.url)
+        return request.build_absolute_uri(source.url)
 
     def get_representative_thumbnail_url(self, obj):
         image = obj.images.order_by("position", "id").first()
