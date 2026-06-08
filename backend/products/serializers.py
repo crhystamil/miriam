@@ -25,11 +25,8 @@ class ProductImageSerializer(serializers.ModelSerializer):
         source = variant or obj.image_file
         if not source:
             return ""
-        request = self.context.get("request")
-        if request is None:
-            return source.url
-        return request.build_absolute_uri(source.url)
-
+        return source.url
+    
     def get_image_url(self, obj):
         return self._build_url(obj, "image_file")
 
@@ -91,15 +88,12 @@ class ProductSerializer(serializers.ModelSerializer):
         )
         return lot if lot is not None else obj.cost_price
 
-    def get_representative_image_url(self, obj):
+    def get_representative_image_url(self, obj):    
         image = obj.images.order_by("position", "id").first()
         if not image or not image.image_file:
             return ""
-        request = self.context.get("request")
-        if request is None:
-            return image.image_file.url
-        return request.build_absolute_uri(source.url)
-
+        return image.image_file.url
+  
     def get_representative_thumbnail_url(self, obj):
         image = obj.images.order_by("position", "id").first()
         if not image:
@@ -107,10 +101,7 @@ class ProductSerializer(serializers.ModelSerializer):
         source = image.thumbnail or image.image_file
         if not source:
             return ""
-        request = self.context.get("request")
-        if request is None:
-            return source.url
-        return request.build_absolute_uri(source.url)
+        return source.url
 
     def validate(self, attrs):
         image_files = attrs.get("image_files")
