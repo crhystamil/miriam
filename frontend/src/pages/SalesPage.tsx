@@ -26,6 +26,7 @@ export function SalesPage() {
   const [fieldErrors, setFieldErrors] = useState<string[]>([])
   const [newProduct, setNewProduct] = useState("")
   const [productQuery, setProductQuery] = useState("")
+  const [productSearch, setProductSearch] = useState("")
   const [newQuantity, setNewQuantity] = useState("1")
   const [newPrice, setNewPrice] = useState("")
   const [newNotes, setNewNotes] = useState("")
@@ -45,16 +46,6 @@ export function SalesPage() {
     const firstByPosition = [...selectedProduct.images].sort((a, b) => (a.position ?? 9999) - (b.position ?? 9999))[0]
     return firstByPosition?.image_url ?? ""
   }, [selectedProduct])
-  const filteredProducts = useMemo(() => {
-    const query = productQuery.trim().toLowerCase()
-    if (!query) {
-      return products
-    }
-    return products.filter((product) => {
-      return product.sku.toLowerCase().includes(query) || product.name.toLowerCase().includes(query)
-    })
-  }, [products, productQuery])
-
   async function loadSales() {
     setLoading(true)
     setError("")
@@ -77,8 +68,8 @@ export function SalesPage() {
     }
   }
 
-  async function loadProducts() {
-    const productList = await getProducts({ page: 1 })
+  async function loadProducts(searchTerm = productSearch) {
+    const productList = await getProducts({ page: 1, search: searchTerm.trim() || undefined })
     setProducts(productList.results)
     if (productList.results.length > 0 && !newProduct) {
       setNewProduct(String(productList.results[0].id))
@@ -90,8 +81,13 @@ export function SalesPage() {
   }, [page, from, to, wholesalerFilter])
 
   useEffect(() => {
-    void loadProducts()
-  }, [])
+    const timer = setTimeout(() => setProductSearch(productQuery), 300)
+    return () => clearTimeout(timer)
+  }, [productQuery])
+
+  useEffect(() => {
+    void loadProducts(productSearch)
+  }, [productSearch])
 
   useEffect(() => {
     async function loadWholesalers() {
@@ -105,14 +101,15 @@ export function SalesPage() {
   }, [])
 
   useEffect(() => {
-    if (filteredProducts.length === 0) {
+    if (products.length === 0) {
+      setNewProduct("")
       return
     }
-    const exists = filteredProducts.some((product) => String(product.id) === newProduct)
+    const exists = products.some((product) => String(product.id) === newProduct)
     if (!exists) {
-      setNewProduct(String(filteredProducts[0].id))
+      setNewProduct(String(products[0].id))
     }
-  }, [filteredProducts, newProduct])
+  }, [products, newProduct])
 
   function applyFilters() {
     setPage(1)
@@ -191,7 +188,7 @@ export function SalesPage() {
       setSuccess("Venta creada correctamente.")
       setNewPrice("")
       setNewNotes("")
-      await loadProducts()
+      await loadProducts(productSearch)
       setPage(1)
       await loadSales()
     } catch (err) {
@@ -288,13 +285,14 @@ export function SalesPage() {
                   <label>
                     Producto
                     <select aria-label="Producto de venta" value={newProduct} onChange={(e) => setNewProduct(e.target.value)}>
-                      {filteredProducts.map((product) => (
+                      {products.map((product) => (
                         <option key={product.id} value={product.id}>
                           {product.sku} - {product.name}
                         </option>
                       ))}
                     </select>
-                    {filteredProducts.length === 0 ? <span className="page-subtle">Sin coincidencias.</span> : null}
+                    {products.length === 0 && productQuery.trim() !== "" ? <span className="page-subtle">No se encontraron productos.</span> : null}
+                    {products.length === 0 && productQuery.trim() === "" ? <span className="page-subtle">No hay productos disponibles para vender.</span> : null}
                   </label>
                   <label>
                     Mayorista
@@ -332,7 +330,7 @@ export function SalesPage() {
                       placeholder="Detalle adicional de la venta"
                     />
                   </label>
-                   <button type="submit" disabled={submittingSale || wholesalers.length === 0}>{submittingSale ? "Enviando..." : "Registrar Venta"}</button>
+                    <button type="submit" disabled={submittingSale || wholesalers.length === 0 || products.length === 0}>{submittingSale ? "Enviando..." : "Registrar Venta"}</button>
                 </form>
 
                 <aside className="sales-product-detail">
