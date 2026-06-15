@@ -45,6 +45,8 @@ class Purchase(models.Model):
     def clean(self) -> None:
         if self.quantity <= 0:
             raise ValidationError("La cantidad de compra debe ser positiva.")
+        if self.unit_cost <= Decimal("0.00"):
+            raise ValidationError("El costo unitario de compra debe ser mayor a cero.")
 
     def __str__(self) -> str:
         return f"Compra #{self.pk or 'new'} - {self.product}"
@@ -82,6 +84,10 @@ class Sale(models.Model):
 
     @property
     def store_profit(self) -> Decimal:
+        allocations = list(self.cost_allocations.all()) if self.pk else []
+        if allocations:
+            total_cost = sum(allocation.unit_cost * allocation.quantity for allocation in allocations)
+            return (self.unit_wholesale_reference_price * self.quantity) - total_cost
         return (self.unit_wholesale_reference_price - self.unit_cost_price) * self.quantity
 
     @property
@@ -90,6 +96,77 @@ class Sale(models.Model):
 
     def __str__(self) -> str:
         return f"Venta #{self.pk or 'new'} - {self.product}"
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class SaleCostAllocation(models.Model):
+    sale = models.ForeignKey("sales.Sale", on_delete=models.CASCADE, related_name="cost_allocations")
+    purchase = models.ForeignKey("sales.Purchase", on_delete=models.PROTECT, related_name="cost_allocations")
+    quantity = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ("id",)
+
+    def clean(self) -> None:
+        if self.quantity <= 0:
+            raise ValidationError("La cantidad asignada debe ser positiva.")
+        if self.unit_cost <= Decimal("0.00"):
+            raise ValidationError("El costo asignado debe ser mayor a cero.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class InventoryAdjustment(models.Model):
+    class Direction(models.TextChoices):
+        INCREASE = "increase", "Incremento"
+        DECREASE = "decrease", "Disminucion"
+        REVERSAL = "reversal", "Reversa"
+
+    product = models.ForeignKey("products.Product", on_delete=models.PROTECT, related_name="inventory_adjustments")
+    direction = models.CharField(max_length=16, choices=Direction.choices)
+    quantity = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    reason = models.TextField()
+    actor = models.ForeignKey("core.User", on_delete=models.PROTECT, related_name="inventory_adjustments")
+    source_sale = models.ForeignKey("sales.Sale", on_delete=models.PROTECT, null=True, blank=True, related_name="reversal_adjustments")
+    adjusted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ("-adjusted_at", "-id")
+
+    def clean(self) -> None:
+        if self.quantity <= 0:
+            raise ValidationError("La cantidad ajustada debe ser positiva.")
+        if not self.reason.strip():
+            raise ValidationError("El motivo del ajuste es obligatorio.")
+        if self.direction == self.Direction.INCREASE and (self.unit_cost is None or self.unit_cost <= Decimal("0.00")):
+            raise ValidationError("El costo unitario es obligatorio para incrementos de inventario.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+
+class InventoryAdjustmentLot(models.Model):
+    adjustment = models.ForeignKey("sales.InventoryAdjustment", on_delete=models.CASCADE, related_name="affected_lots")
+    purchase = models.ForeignKey("sales.Purchase", on_delete=models.PROTECT, related_name="inventory_adjustment_lots")
+    quantity = models.PositiveIntegerField()
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        ordering = ("id",)
+
+    def clean(self) -> None:
+        if self.quantity <= 0:
+            raise ValidationError("La cantidad afectada debe ser positiva.")
+        if self.unit_cost <= Decimal("0.00"):
+            raise ValidationError("El costo del lote afectado debe ser mayor a cero.")
 
     def save(self, *args, **kwargs):
         self.full_clean()

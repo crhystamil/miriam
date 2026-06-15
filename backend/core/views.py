@@ -3,7 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
 from django.utils.dateparse import parse_date
-from django.db.models import F, Q, Sum
+from django.db.models import Sum
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -14,6 +14,24 @@ from core.serializers import LoginSerializer, UserMeSerializer
 from expenses.models import Expense
 from products.models import Product
 from sales.models import Purchase, Sale
+from sales.services import get_stock_lot_mismatch
+
+
+def _sales_totals(sales_qs):
+    sales = sales_qs.prefetch_related("cost_allocations")
+    sales_count = sales.count()
+    units_sold = 0
+    gross_sales = Decimal("0.00")
+    store_profit = Decimal("0.00")
+    vendor_profit = Decimal("0.00")
+
+    for sale in sales:
+        units_sold += sale.quantity
+        gross_sales += sale.unit_sale_price * sale.quantity
+        store_profit += sale.store_profit
+        vendor_profit += sale.vendor_profit
+
+    return sales_count, units_sold, gross_sales, store_profit, vendor_profit
 
 
 class LoginView(APIView):
@@ -198,16 +216,7 @@ class DashboardSummaryView(APIView):
             sales_qs = sales_qs.filter(vendor=user)
             expenses_qs = expenses_qs.filter(vendor=user)
 
-        sales_count = sales_qs.count()
-        units_sold = sales_qs.aggregate(total=Sum("quantity"))["total"] or 0
-
-        gross_sales = sales_qs.aggregate(total=Sum(F("unit_sale_price") * F("quantity")))["total"] or 0
-        store_profit = sales_qs.aggregate(
-            total=Sum((F("unit_wholesale_reference_price") - F("unit_cost_price")) * F("quantity"))
-        )["total"] or 0
-        vendor_profit = sales_qs.aggregate(
-            total=Sum((F("unit_sale_price") - F("unit_wholesale_reference_price")) * F("quantity"))
-        )["total"] or 0
+        sales_count, units_sold, gross_sales, store_profit, vendor_profit = _sales_totals(sales_qs)
         total_expenses = expenses_qs.aggregate(total=Sum("amount"))["total"] or 0
 
         low_stock_products = Product.objects.filter(stock__lte=5, is_active=True).values("id", "sku", "name", "stock")[:10]
@@ -278,15 +287,7 @@ class MonthlyReportView(APIView):
             sales_qs = sales_qs.filter(vendor=request.user)
             expenses_qs = expenses_qs.filter(vendor=request.user)
 
-        sales_count = sales_qs.count()
-        units_sold = sales_qs.aggregate(total=Sum("quantity"))["total"] or 0
-        gross_sales = sales_qs.aggregate(total=Sum(F("unit_sale_price") * F("quantity")))["total"] or 0
-        store_profit = sales_qs.aggregate(
-            total=Sum((F("unit_wholesale_reference_price") - F("unit_cost_price")) * F("quantity"))
-        )["total"] or 0
-        vendor_profit = sales_qs.aggregate(
-            total=Sum((F("unit_sale_price") - F("unit_wholesale_reference_price")) * F("quantity"))
-        )["total"] or 0
+        sales_count, units_sold, gross_sales, store_profit, vendor_profit = _sales_totals(sales_qs)
         total_expenses = expenses_qs.aggregate(total=Sum("amount"))["total"] or 0
 
         return Response(
@@ -343,3 +344,15 @@ class InventoryCapitalView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class InventoryMismatchView(APIView):
+    permission_classes = [IsAdminOrVendor]
+
+    def get(self, request):
+        mismatches = []
+        for product in Product.objects.filter(is_active=True).order_by("name"):
+            mismatch = get_stock_lot_mismatch(product=product)
+            if mismatch is not None:
+                mismatches.append(mismatch)
+        return Response({"count": len(mismatches), "results": mismatches}, status=status.HTTP_200_OK)

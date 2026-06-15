@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from core.permissions import IsAdmin, IsAdminOrVendor
-from sales.models import Purchase, Sale, Wholesaler
-from sales.serializers import PurchaseSerializer, SaleSerializer, WholesalerSerializer
+from sales.models import InventoryAdjustment, Purchase, Sale, Wholesaler
+from sales.serializers import InventoryAdjustmentSerializer, PurchaseSerializer, SaleSerializer, WholesalerSerializer
 from sales.services import deactivate_sale
 
 
@@ -17,8 +17,14 @@ class PurchaseViewSet(ModelViewSet):
     permission_classes = [IsAdmin]
 
 
+class InventoryAdjustmentViewSet(ModelViewSet):
+    queryset = InventoryAdjustment.objects.select_related("product", "actor", "source_sale").prefetch_related("affected_lots").all()
+    serializer_class = InventoryAdjustmentSerializer
+    permission_classes = [IsAdmin]
+
+
 class SaleViewSet(ModelViewSet):
-    queryset = Sale.objects.select_related("product", "vendor", "wholesaler").all()
+    queryset = Sale.objects.select_related("product", "vendor", "wholesaler").prefetch_related("cost_allocations").all()
     serializer_class = SaleSerializer
     permission_classes = [IsAdminOrVendor]
 

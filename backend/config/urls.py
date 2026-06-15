@@ -26,6 +26,7 @@ from core.views import (
     DashboardSummaryView,
     HealthView,
     InventoryCapitalView,
+    InventoryMismatchView,
     LoginView,
     LogoutView,
     MeView,
@@ -34,11 +35,12 @@ from core.views import (
 )
 from expenses.views import ExpenseViewSet
 from products.views import ProductViewSet
-from sales.views import PurchaseViewSet, SaleViewSet, WholesalerViewSet
+from sales.views import InventoryAdjustmentViewSet, PurchaseViewSet, SaleViewSet, WholesalerViewSet
 
 router = DefaultRouter()
 router.register("products", ProductViewSet, basename="product")
 router.register("purchases", PurchaseViewSet, basename="purchase")
+router.register("inventory-adjustments", InventoryAdjustmentViewSet, basename="inventory-adjustment")
 router.register("sales", SaleViewSet, basename="sale")
 router.register("wholesalers", WholesalerViewSet, basename="wholesaler")
 router.register("expenses", ExpenseViewSet, basename="expense")
@@ -55,6 +57,7 @@ urlpatterns = [
     path("api/reports/dashboard/", DashboardSummaryView.as_view(), name="api-dashboard-summary"),
     path("api/reports/monthly/", MonthlyReportView.as_view(), name="api-monthly-report"),
     path("api/reports/inventory-capital/", InventoryCapitalView.as_view(), name="api-inventory-capital"),
+    path("api/reports/inventory-mismatches/", InventoryMismatchView.as_view(), name="api-inventory-mismatches"),
     path("api/", include(router.urls)),
 ]
 

@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from products.models import Product
-from sales.models import Wholesaler
+from sales.models import InventoryAdjustment, Purchase, Wholesaler
 from sales.services import register_purchase, register_sale
 
 
@@ -86,6 +86,27 @@ class SalesApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_purchase_preserves_product_cost_reference(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/purchases/",
+            {
+                "product": self.product.id,
+                "quantity": 3,
+                "unit_cost": "15.00",
+                "notes": "nuevo lote",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["remaining"], 3)
+        self.assertEqual(response.data["unit_cost"], "15.00")
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 23)
+        self.assertEqual(self.product.cost_price, Decimal("10.00"))
+        self.assertEqual(Purchase.objects.filter(product=self.product).count(), 2)
 
     def test_vendor_can_deactivate_own_sale_and_restore_stock(self) -> None:
         sale = register_sale(
@@ -166,3 +187,86 @@ class SalesApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_sale_response_values_stable_after_later_purchase(self) -> None:
+        sale = register_sale(
+            product_id=self.product.id,
+            vendor_id=self.vendor.id,
+            wholesaler_id=self.wholesaler.id,
+            unit_sale_price=Decimal("17.00"),
+        )
+        register_purchase(product_id=self.product.id, quantity=5, unit_cost=Decimal("15.00"))
+
+        sale.refresh_from_db()
+        self.assertEqual(sale.unit_cost_price, Decimal("10.00"))
+        self.assertEqual(sale.unit_sale_price, Decimal("17.00"))
+
+        self.client.force_authenticate(user=self.vendor)
+        response = self.client.get(f"/api/sales/{sale.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["unit_cost_price"], "10.00")
+        self.assertEqual(response.data["unit_sale_price"], "17.00")
+
+    def test_sale_response_exposes_fifo_cost_allocations(self) -> None:
+        Purchase.objects.filter(product=self.product).delete()
+        self.product.stock = 0
+        self.product.save(update_fields=["stock"])
+        register_purchase(product_id=self.product.id, quantity=1, unit_cost=Decimal("10.00"))
+        register_purchase(product_id=self.product.id, quantity=2, unit_cost=Decimal("15.00"))
+
+        self.client.force_authenticate(user=self.vendor)
+        response = self.client.post(
+            "/api/sales/",
+            {
+                "product": self.product.id,
+                "wholesaler": self.wholesaler.id,
+                "quantity": 2,
+                "unit_sale_price": "20.00",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["quantity"], 2)
+        self.assertEqual(len(response.data["cost_allocations"]), 2)
+        self.assertEqual(response.data["cost_allocations"][0]["quantity"], 1)
+        self.assertEqual(response.data["cost_allocations"][0]["unit_cost"], "10.00")
+        self.assertEqual(response.data["cost_allocations"][1]["quantity"], 1)
+        self.assertEqual(response.data["cost_allocations"][1]["unit_cost"], "15.00")
+
+    def test_admin_can_create_inventory_adjustment(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/inventory-adjustments/",
+            {
+                "product": self.product.id,
+                "direction": InventoryAdjustment.Direction.INCREASE,
+                "quantity": 2,
+                "unit_cost": "12.00",
+                "reason": "conteo fisico",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["actor"], self.admin.id)
+        self.assertEqual(response.data["quantity"], 2)
+        self.assertEqual(len(response.data["affected_lots"]), 1)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 22)
+
+    def test_vendor_cannot_create_inventory_adjustment(self) -> None:
+        self.client.force_authenticate(user=self.vendor)
+        response = self.client.post(
+            "/api/inventory-adjustments/",
+            {
+                "product": self.product.id,
+                "direction": InventoryAdjustment.Direction.INCREASE,
+                "quantity": 2,
+                "unit_cost": "12.00",
+                "reason": "conteo fisico",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

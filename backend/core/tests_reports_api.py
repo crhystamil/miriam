@@ -116,6 +116,43 @@ class DashboardReportApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.data["code"], "invalid_query_params")
 
+    def test_dashboard_profit_uses_historical_sale_values_after_later_changes(self) -> None:
+        product = Product.objects.create(
+            sku="REP-HIST",
+            name="Historico",
+            cost_price=Decimal("10.00"),
+            wholesale_reference_price=Decimal("15.00"),
+            public_price=Decimal("20.00"),
+            stock=0,
+        )
+        register_purchase(product_id=product.id, quantity=1, unit_cost=Decimal("10.00"))
+        register_purchase(product_id=product.id, quantity=1, unit_cost=Decimal("20.00"))
+        wholesaler = Wholesaler.objects.create(name="Mayorista Historico", phone="75000000")
+        sale = register_sale(
+            product_id=product.id,
+            vendor_id=self.vendor_a.id,
+            wholesaler_id=wholesaler.id,
+            unit_sale_price=Decimal("25.00"),
+            quantity=2,
+        )
+        sale.sold_at = timezone.make_aware(datetime(2026, 7, 10, 12, 0, 0))
+        sale.save(update_fields=["sold_at"])
+
+        register_purchase(product_id=product.id, quantity=5, unit_cost=Decimal("99.00"))
+        product.cost_price = Decimal("88.00")
+        product.wholesale_reference_price = Decimal("77.00")
+        product.public_price = Decimal("99.00")
+        product.save(update_fields=["cost_price", "wholesale_reference_price", "public_price"])
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/reports/dashboard/?from=2026-07-01&to=2026-07-31")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["sales_count"], 1)
+        self.assertEqual(response.data["units_sold"], 2)
+        self.assertEqual(response.data["store_profit"], Decimal("0.00"))
+        self.assertEqual(response.data["vendor_profit"], Decimal("20.00"))
+
 
 class MonthlyReportApiTests(APITestCase):
     def setUp(self) -> None:
@@ -236,3 +273,19 @@ class InventoryCapitalApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(Decimal(response.data["total_capital"]), Decimal("380.00"))
         self.assertEqual(len(response.data["by_product"]), 2)
+
+    def test_inventory_mismatch_report_flags_stock_lot_differences(self) -> None:
+        register_purchase(product_id=self.product_a.id, quantity=3, unit_cost=Decimal("50.00"))
+        self.product_a.refresh_from_db()
+        self.product_a.stock = 5
+        self.product_a.save(update_fields=["stock"])
+
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get("/api/reports/inventory-mismatches/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["product_id"], self.product_a.id)
+        self.assertEqual(response.data["results"][0]["product_stock"], 5)
+        self.assertEqual(response.data["results"][0]["lot_remaining_total"], 3)
+        self.assertEqual(response.data["results"][0]["difference"], 2)

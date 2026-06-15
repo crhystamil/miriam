@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from products.models import Product, ProductImage
@@ -105,6 +107,16 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         image_files = attrs.get("image_files")
+        stock = attrs.get("stock")
+        cost_price = attrs.get("cost_price", getattr(self.instance, "cost_price", None))
+
+        if self.instance is None and stock and stock > 0 and cost_price is not None and cost_price <= Decimal("0.00"):
+            raise serializers.ValidationError({"cost_price": ["Debe ser mayor a cero para crear stock inicial."]})
+
+        if self.instance is not None and "stock" in attrs and attrs["stock"] != self.instance.stock:
+            raise serializers.ValidationError(
+                {"stock": ["El stock solo puede modificarse mediante compras o ajustes de inventario."]}
+            )
 
         if self.instance is None and not image_files:
             raise serializers.ValidationError({"image_files": ["Debe agregar al menos una imagen."]})

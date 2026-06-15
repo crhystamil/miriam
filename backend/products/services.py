@@ -56,7 +56,21 @@ def create_product_with_images(*, product_data: dict, image_files: list[Uploaded
     if not product_data.get("sku"):
         product_data["sku"] = generate_unique_sku()
 
+    initial_stock = product_data.pop("stock", 0) or 0
+    if initial_stock > 0 and product_data.get("cost_price") <= 0:
+        raise ValidationError({"cost_price": ["Debe ser mayor a cero para crear stock inicial."]})
+
+    product_data["stock"] = 0
     product = Product.objects.create(**product_data)
+    if initial_stock > 0:
+        from sales.services import register_purchase
+
+        register_purchase(
+            product_id=product.id,
+            quantity=initial_stock,
+            unit_cost=product.cost_price,
+            notes="Lote inicial creado con el producto.",
+        )
     ProductImage.objects.bulk_create(
         [
             ProductImage(
@@ -75,6 +89,10 @@ def create_product_with_images(*, product_data: dict, image_files: list[Uploaded
 
 @transaction.atomic
 def update_product_with_images(*, product: Product, product_data: dict, image_files: list[UploadedFile] | None) -> Product:
+
+    if "stock" in product_data and product_data["stock"] != product.stock:
+        raise ValidationError({"stock": ["El stock solo puede modificarse mediante compras o ajustes de inventario."]})
+    product_data.pop("stock", None)
 
     for field, value in product_data.items():
         setattr(product, field, value)

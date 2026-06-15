@@ -6,9 +6,13 @@ from rest_framework.test import APITestCase
 
 from core.models import User
 from products.models import Product, ProductImage
+from sales.models import Purchase
 
 
 class ProductsApiTests(APITestCase):
+    def _image(self, name="new.jpg") -> SimpleUploadedFile:
+        return SimpleUploadedFile(name=name, content=b"image-bytes", content_type="image/jpeg")
+
     def setUp(self) -> None:
         self.admin = User.objects.create_user(username="adminprod", password="secret123", role=User.Role.ADMIN)
         self.vendor = User.objects.create_user(username="vendorprod", password="secret123", role=User.Role.VENDOR)
@@ -84,8 +88,8 @@ class ProductsApiTests(APITestCase):
 
     def test_admin_can_create_product_with_images(self) -> None:
         self.client.force_authenticate(user=self.admin)
-        image_1 = SimpleUploadedFile(name="new-1.jpg", content=b"image-bytes-1", content_type="image/jpeg")
-        image_2 = SimpleUploadedFile(name="new-2.jpg", content=b"image-bytes-2", content_type="image/jpeg")
+        image_1 = self._image("new-1.jpg")
+        image_2 = self._image("new-2.jpg")
         response = self.client.post(
             "/api/products/",
             {
@@ -102,6 +106,61 @@ class ProductsApiTests(APITestCase):
         self.assertTrue(response.data["sku"].startswith("PRD"))
         self.assertIn("images", response.data)
         self.assertEqual(len(response.data["images"]), 2)
+
+    def test_admin_create_product_with_initial_stock_creates_matching_costed_lot(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/products/",
+            {
+                "name": "Nuevo con stock",
+                "cost_price": "10.00",
+                "wholesale_reference_price": "12.00",
+                "public_price": "15.00",
+                "stock": 4,
+                "image_files": [self._image()],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        product = Product.objects.get(pk=response.data["id"])
+        lot = Purchase.objects.get(product=product)
+        self.assertEqual(product.stock, 4)
+        self.assertEqual(lot.quantity, 4)
+        self.assertEqual(lot.remaining, 4)
+        self.assertEqual(lot.unit_cost, Decimal("10.00"))
+
+    def test_admin_cannot_create_product_with_initial_stock_without_valid_cost(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.post(
+            "/api/products/",
+            {
+                "name": "Nuevo sin costo",
+                "cost_price": "0.00",
+                "wholesale_reference_price": "12.00",
+                "public_price": "15.00",
+                "stock": 4,
+                "image_files": [self._image()],
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("cost_price", response.data["field_errors"])
+
+    def test_admin_cannot_update_stock_directly(self) -> None:
+        self.client.force_authenticate(user=self.admin)
+        product = Product.objects.get(sku="PR-000")
+        response = self.client.patch(
+            f"/api/products/{product.id}/",
+            {"stock": product.stock + 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("stock", response.data["field_errors"])
+        product.refresh_from_db()
+        self.assertEqual(product.stock, 3)
 
     def test_admin_cannot_create_product_without_images(self) -> None:
         self.client.force_authenticate(user=self.admin)
